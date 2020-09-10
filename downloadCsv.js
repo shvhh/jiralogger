@@ -56,20 +56,8 @@ async function downloadCsv({ clockifyEmail, clockifyPassword, usersId }) {
         'div.cl-dropdown-menu.ng-star-inserted > div.cl-scroll-area > a.cl-dropdown-item:nth-child(2)',
         { delay: 15 }
     );
-    // await page.waitForSelector('.Input__InputElement-sc-1o6bj35-0.bfCuIo', {
-    //     visible: true,
-    //     timeout: 0,
-    // });
-    // await setDuration(duration, page);
-    // await page.keyboard.press('Tab');
-    // await page.keyboard.press('Tab');
-    // await SetDate(startDate, page);
-    // await page.keyboard.press('Enter');
-    // await page.keyboard.press('Tab');
-    // await setTime(startTime, page);
-    // await page.keyboard.press('Enter');
-    // await page.click('button.css-1yx6h60');
-    await delay(15);
+
+    await delay(6);
     await browser.close();
 }
 

@@ -1,13 +1,25 @@
+const {
+    JIRA_EMAIL,
+    JIRA_PASSWORD,
+    CLOCKIFY_EMAIL,
+    CLOCKIFY_PASSWORD,
+    CLOCKIFY_USERID,
+    FIRST_NAME,
+    SLACK_HOOK_PATH,
+} = require('dotenv').config().parsed;
+const fs = require('fs');
 const logToJira = require('./logToJira');
 const csvParser = require('./csvParse');
 const downloadCsv = require('./downloadCsv');
-const fs = require('fs');
-const jiraEmail = 'hemant.rajpoot@unthinkable.co';
-const jiraPassword = '*******************';
+const sendToSlack = require('./sendToSlack');
+const pass = require('./password.js');
 
-const clockifyEmail = 'hemant.rajpoot@unthinkable.co';
-const clockifyPassword = '*******************';
-const clockifyUserId = '5f32d3ffd0dc713d6a104e9a';
+const jiraEmail = JIRA_EMAIL;
+const jiraPassword = JIRA_PASSWORD;
+
+const clockifyEmail = CLOCKIFY_EMAIL;
+const clockifyPassword = CLOCKIFY_PASSWORD;
+const clockifyUserId = CLOCKIFY_USERID;
 
 (async () => {
     await downloadCsv({
@@ -19,8 +31,15 @@ const clockifyUserId = '5f32d3ffd0dc713d6a104e9a';
     const csvFile = fs
         .readdirSync('.')
         .find((filename) => filename.endsWith('.csv'));
+    const csvRaw = csvParser(csvFile);
 
-    const csvData = csvParser(csvFile).map(({ Description, ...workEntry }) => ({
+    const csvDataForSlack = csvRaw.map((workEntry, i) => ({
+        title: workEntry.Description,
+        duration: workEntry['Duration (h)'],
+        index: i,
+    }));
+
+    const csvDataForJira = csvRaw.map(({ Description, ...workEntry }) => ({
         taskId: Description.substring(
             Description.indexOf('[') + 1,
             Description.indexOf(']')
@@ -32,8 +51,13 @@ const clockifyUserId = '5f32d3ffd0dc713d6a104e9a';
         duration: workEntry['Duration (h)'],
     }));
 
-    for (i = 0; i < csvData.length; i++) {
-        await logToJira(csvData[i]);
+    await sendToSlack(csvDataForSlack, FIRST_NAME, SLACK_HOOK_PATH);
+
+    for (i = 0; i < csvDataForJira.length; i++) {
+        await logToJira(csvDataForJira[i]);
+        console.log(
+            `${csvDataForJira[i].duration} logged in ${csvDataForJira[i].taskId} At ${csvDataForJira[i].startTime}`
+        );
     }
 
     fs.unlinkSync(csvFile);
