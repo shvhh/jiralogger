@@ -16,7 +16,7 @@ async function logToJira({
     duration,
 }) {
     const browser = await puppeteer.launch({
-        headless: false,
+        headless: true,
         timeout: 0,
     });
 
@@ -36,7 +36,7 @@ async function logToJira({
         delay: 15,
     });
     await page.keyboard.press('Enter');
-    await delay(100);
+    await delay(60);
 
     await page.click('.sc-iIHSe.fLgmPq', { delay: 15 });
     await page.waitForSelector('.Input__InputElement-sc-1o6bj35-0.bfCuIo', {
