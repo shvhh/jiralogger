@@ -6,14 +6,15 @@ const {
     CLOCKIFY_USERID,
     FIRST_NAME,
     SLACK_HOOK_PATH,
+    GMAIL_ID,
+    GMAIL_PASSWORD,
 } = require('dotenv').config().parsed;
 const fs = require('fs');
 const logToJira = require('./logToJira');
 const csvParser = require('./csvParse');
 const downloadCsv = require('./downloadCsv');
 const sendToSlack = require('./sendToSlack');
-const pass = require('./password.js');
-
+const sendMail = require('./sendToGmail');
 const jiraEmail = JIRA_EMAIL;
 const jiraPassword = JIRA_PASSWORD;
 
@@ -21,25 +22,29 @@ const clockifyEmail = CLOCKIFY_EMAIL;
 const clockifyPassword = CLOCKIFY_PASSWORD;
 const clockifyUserId = CLOCKIFY_USERID;
 
+function log() {
+    const consoleLog = console.log;
+    return function () {
+        let err = new Error();
+        err = err.stack.split('\n')[2].split(' ').pop();
+        consoleLog(err.substring(err.indexOf('/'), err.lastIndexOf(':')));
+        consoleLog(...arguments);
+    };
+}
+console.log = log();
+
 (async () => {
     await downloadCsv({
         clockifyEmail,
         clockifyPassword,
         usersId: clockifyUserId,
     });
-
     const csvFile = fs
         .readdirSync('.')
         .find((filename) => filename.endsWith('.csv'));
     const csvRaw = csvParser(csvFile);
 
-    const csvDataForSlack = csvRaw.map((workEntry, i) => ({
-        title: workEntry.Description,
-        duration: workEntry['Duration (h)'],
-        index: i,
-    }));
-
-    const csvDataForJira = csvRaw.map(({ Description, ...workEntry }) => ({
+    const csvData = csvRaw.map(({ Description, ...workEntry }, i) => ({
         taskId: Description.substring(
             Description.indexOf('[') + 1,
             Description.indexOf(']')
@@ -49,16 +54,20 @@ const clockifyUserId = CLOCKIFY_USERID;
         startDate: workEntry['Start Date'],
         startTime: workEntry['Start Time'],
         duration: workEntry['Duration (h)'],
+        title: Description,
+        index: i,
     }));
 
-    await sendToSlack(csvDataForSlack, FIRST_NAME, SLACK_HOOK_PATH);
+    const csvDataWithPercentage = await Promise.all(
+        csvData.map((workEntry) => logToJira(workEntry))
+    );
 
-    for (i = 0; i < csvDataForJira.length; i++) {
-        await logToJira(csvDataForJira[i]);
-        console.log(
-            `${csvDataForJira[i].duration} logged in ${csvDataForJira[i].taskId} At ${csvDataForJira[i].startTime}`
-        );
-    }
+    const slackUniqueTaskList = await sendToSlack(
+        csvDataWithPercentage,
+        FIRST_NAME,
+        SLACK_HOOK_PATH
+    );
 
+    await sendMail(slackUniqueTaskList, GMAIL_ID, GMAIL_PASSWORD);
     fs.unlinkSync(csvFile);
 })();
